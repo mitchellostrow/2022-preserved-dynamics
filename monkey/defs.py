@@ -31,13 +31,15 @@ exec_epoch_decode = pyal.generate_epoch_fun(start_point_name='idx_movement_on',
                                     )
 
 def get_target_id(trial):
-    return int(np.round((trial.target_direction + np.pi) / (0.25*np.pi))) - 1
+    name = 'target_direction' if 'target_direction' in trial.index else 'tgtDir'
+    return int(np.round((trial[name] + np.pi) / (0.25*np.pi))) - 1
 
 def prep_general (df):
     "preprocessing general!"
     time_signals = [signal for signal in pyal.get_time_varying_fields(df) if 'spikes' in signal]
     df["target_id"] = df.apply(get_target_id, axis=1)  # add a field `target_id` with int values
-    df['session'] = df.monkey[0]+':'+df.date[0]
+    date = 'date' if 'date' in df.columns else 'date_time'
+    df['session'] = df.monkey[0]+':'+df[date][0]
     
     for signal in time_signals:
         df_ = pyal.remove_low_firing_neurons(df, signal, 1)
@@ -50,10 +52,16 @@ def prep_general (df):
     time_signals = [signal for signal in pyal.get_time_varying_fields(df_) if 'spikes' in signal]
 
     df_= pyal.select_trials(df_, df_.result== 'R')
-    df_= pyal.select_trials(df_, df_.epoch=='BL')
+    try:
+        df_= pyal.select_trials(df_, df_.epoch=='BL')
+    except AttributeError:
+        ...
     
-    assert np.all(df_.bin_size == .01), 'bin size is not consistent!'
-    df_ = pyal.combine_time_bins(df_, int(BIN_SIZE/.01))
+    if np.all(df_.bin_size == BIN_SIZE):
+        ...
+    else:
+        assert np.all(df_.bin_size == .01), 'bin size is not consistent!'
+        df_ = pyal.combine_time_bins(df_, int(BIN_SIZE/.01))
     for signal in time_signals:
         df_ = pyal.sqrt_transform_signal(df_, signal)
         
